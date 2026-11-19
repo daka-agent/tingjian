@@ -35,10 +35,26 @@ body {
   background: #24211f;
 }
 
+html {
+  /* 微信 iOS 会跟随系统字号放大网页文字，固定比例避免竖屏版式被撑破 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   color: var(--ink);
   font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@supports (height: 100dvh) {
+  html,
+  body {
+    height: 100dvh;
+  }
 }
 
 button {
@@ -52,6 +68,12 @@ button {
   display: grid;
   place-items: center;
   padding: 14px;
+}
+
+@supports (height: 100dvh) {
+  .app {
+    height: 100dvh;
+  }
 }
 
 /* ---------- 标题页 ---------- */
@@ -78,6 +100,11 @@ button {
   background-size: 5px 5px;
   mix-blend-mode: multiply;
   pointer-events: none;
+}
+
+/* 竖屏给标题页设了 display:flex，必须显式补回 hidden，否则它会继续占位把舞台挤到屏幕外 */
+.title-screen[hidden] {
+  display: none;
 }
 
 .title-screen__kicker {
@@ -188,6 +215,19 @@ button {
 
 .stage[hidden] {
   display: none;
+}
+
+/* 只在竖屏出现的底图延伸层：把同一张横图模糊放大，填满画面区上下，避免出现死白 */
+.stage__bg-blur {
+  display: none;
+  position: absolute;
+  z-index: 0;
+  background-position: 50% 50%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(26px) saturate(0.9) brightness(0.94);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .stage__bg {
@@ -595,6 +635,12 @@ button {
   font-size: calc(11px * var(--font-scale));
   letter-spacing: 0.08em;
   color: rgba(73, 63, 57, 0.55);
+}
+
+/* 页码只在竖屏阅读页出现，横屏保持原来的纯净舞台 */
+.dialog__page {
+  display: none;
+  margin: 0;
 }
 
 /* ---------- 选项 ---------- */
@@ -1088,27 +1134,48 @@ body.reduce-motion .dialog__text.is-fading {
 
 /* ---------- 竖屏 ---------- */
 
+/* 竖屏不是把 16:9 横图塞进手机，而是「绘本页」：
+   上半屏是一幅完整插画（同图模糊延展填边），下半屏是真正可读的纸页。
+   两者用一道纸色渐变过渡，避免出现截图里那种大面积死白。 */
+
 @media (max-aspect-ratio: 1 / 1) {
   .app {
     padding: 0;
   }
 
   .stage {
+    /* 画面区高度：16:9 主图高度 + 上下呼吸边，同时不超过屏幕的 44% */
+    --stage-frame-h: clamp(260px, calc(56.25vw + 120px), 380px);
+    --stage-frame-h: clamp(260px, min(calc(56.25vw + 120px), 44dvh), 380px);
+    --stage-safe-bottom: max(10px, env(safe-area-inset-bottom, 0px));
     width: 100%;
     height: 100%;
     aspect-ratio: auto;
     border-radius: 0;
     background:
-      radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.5), transparent 30%),
-      linear-gradient(180deg, #f4ebdd 0%, #eadfcb 62%, #e2d4bc 100%);
+      radial-gradient(circle at 50% 6%, rgba(255, 255, 255, 0.38), transparent 36%),
+      linear-gradient(180deg, #f2e8d8 0%, #f4ebdd 36%, #ecdfca 78%, #e4d5bd 100%);
   }
 
-  /* 竖屏把叙事画面完整放在顶部 16:9 区域，微光坐标不再因裁切而偏移 */
+  .stage__bg-blur {
+    display: block;
+    /* 只向上做 28px 出血（避免模糊层上沿透出硬边）。
+       左右不能出血：横向多出的像素会把 .stage 的 scrollWidth 撑大，
+       而 overflow:hidden 仍可被滚动，整层会被推出 28px，HUD 与微光一起偏。 */
+    inset: -28px 0 auto 0;
+    height: calc(var(--stage-frame-h) + 56px);
+    opacity: 1;
+  }
+
+  /* 主画面完整显示，人物不裁切；上下留白由模糊层接住 */
   .stage__bg {
-    background-size: 100% auto;
-    background-position: 50% 0%;
+    inset: 0 0 auto 0;
+    height: var(--stage-frame-h);
+    background-size: contain;
+    background-position: 50% 50%;
     background-repeat: no-repeat;
-    box-shadow: 0 12px 30px rgba(73, 63, 57, 0.22);
+    background-color: transparent;
+    box-shadow: 0 14px 34px rgba(73, 63, 57, 0.18);
   }
 
   .stage__grade,
@@ -1116,41 +1183,189 @@ body.reduce-motion .dialog__text.is-fading {
   .stage__vignette {
     inset: 0 0 auto 0;
     width: 100%;
-    height: calc(100vw * 9 / 16);
+    height: var(--stage-frame-h);
   }
 
+  /* 画面下沿渐隐到纸色，接住下半页 */
+  .stage::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(var(--stage-frame-h) - 34px);
+    height: 68px;
+    z-index: 4;
+    background: linear-gradient(
+      180deg,
+      rgba(244, 235, 221, 0) 0%,
+      rgba(244, 235, 221, 0.66) 58%,
+      #f4ebdd 100%
+    );
+    pointer-events: none;
+  }
+
+  .stage.is-notebook::before {
+    opacity: 0;
+  }
+
+  /* 下半页的纸纹，让空白变成可阅读的页面而不是没加载完的底色 */
+  .stage::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: var(--stage-frame-h);
+    bottom: 0;
+    z-index: 0;
+    background-image: radial-gradient(rgba(90, 74, 60, 0.055) 1px, transparent 1px);
+    background-size: 5px 5px;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+
+  /* 微光容器先铺满画面区，脚本随后按主图实际显示矩形精确贴合 */
   .spots:not(.spots--paper) {
-    inset: 0 0 auto 0;
+    inset: auto;
+    left: 0;
+    top: 0;
     width: 100%;
-    height: calc(100vw * 9 / 16);
-  }
-
-  .dialog {
-    width: calc(100% - 20px);
-    bottom: max(10px, env(safe-area-inset-bottom));
-    padding: 10px 14px;
-  }
-
-  .choices {
-    width: calc(100% - 20px);
-    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 116px);
+    height: var(--stage-frame-h);
   }
 
   .hud {
-    padding: 10px;
+    padding: max(8px, env(safe-area-inset-top, 0px)) 10px 0;
   }
 
-  .hud__right {
-    max-width: 62%;
-  }
-
-  .chip {
+  .hud__left {
     padding: 5px 10px;
+  }
+
+  .hud__act {
+    font-size: 10px;
+  }
+
+  .hud__shot {
     font-size: 11px;
   }
 
+  .hud__right {
+    max-width: 68%;
+    gap: 5px;
+  }
+
+  .chip {
+    min-height: 40px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  /* 对话框变成下半页正文：贴住画面下沿，按钮落在页脚 */
+  .dialog {
+    top: calc(var(--stage-frame-h) + 6px);
+    bottom: var(--stage-safe-bottom);
+    left: 50%;
+    width: calc(100% - 28px);
+    padding: 6px 2px 0;
+    transform: translateX(-50%);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    opacity: 0;
+  }
+
+  .dialog.is-visible {
+    opacity: 1;
+  }
+
+  .dialog::before {
+    content: "";
+    flex: 0 0 auto;
+    height: 1px;
+    margin-bottom: 8px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(73, 63, 57, 0.2) 22%,
+      rgba(73, 63, 57, 0.2) 78%,
+      transparent
+    );
+  }
+
+  .dialog__who {
+    font-size: calc(12px * var(--font-scale));
+    letter-spacing: 0.14em;
+  }
+
   .dialog__text {
-    font-size: calc(17px * var(--font-scale));
+    font-size: calc(18px * var(--font-scale));
+    line-height: 1.85;
+  }
+
+  .dialog__foot {
+    margin-top: 16px;
+    padding-top: 0;
+  }
+
+  .dialog__hint {
+    font-size: calc(11px * var(--font-scale));
+  }
+
+  /* 页脚短线，把下方留白收成一张有页码感的纸，而不是被截断的空白 */
+  .dialog::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    width: 46px;
+    height: 2px;
+    transform: translateX(-50%);
+    border-radius: 2px;
+    background: rgba(73, 63, 57, 0.16);
+  }
+
+  .dialog__page {
+    display: block;
+    position: absolute;
+    right: 2px;
+    bottom: 10px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: rgba(73, 63, 57, 0.38);
+  }
+
+  .choices {
+    top: auto;
+    bottom: calc(var(--stage-safe-bottom) + 74px);
+    width: calc(100% - 28px);
+    max-height: 52dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 图画本场景：纸页居中在屏幕上，对话框要落到纸面下方，别压住可点的微光 */
+  .stage.is-notebook .dialog {
+    top: calc(44.5% + min(86vw, 53vh) * 0.35 + 30px);
+  }
+
+  /* 压暗只留在上半屏：横屏时整屏压暗是为了让纸页从场景图里"亮起来"，
+     竖屏下半屏已经是纸页阅读区，再压暗正文就变成深底灰字（对比度只有 3.3:1）。
+     渐变到 58% 收干净，正文起始位置（约 60%）落在纸色上。 */
+  .stage.is-notebook .notebook-layer {
+    background: linear-gradient(
+      180deg,
+      rgba(36, 33, 31, 0.46) 0%,
+      rgba(36, 33, 31, 0.4) 34%,
+      rgba(36, 33, 31, 0.1) 50%,
+      rgba(36, 33, 31, 0) 58%
+    );
+    /* 整层模糊会把下方纸页一起糊掉，竖屏只保留上半屏的压暗效果 */
+    backdrop-filter: none;
   }
 
   .notebook-layer {
@@ -1165,17 +1380,34 @@ body.reduce-motion .dialog__text.is-fading {
     width: min(84.64%, 56vh);
   }
 
+  .title-screen {
+    width: 100%;
+    min-height: 100%;
+    padding: calc(30px + env(safe-area-inset-top, 0px)) 22px calc(30px + env(safe-area-inset-bottom, 0px));
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
   .menu {
     padding: 6%;
+    padding-bottom: calc(6% + env(safe-area-inset-bottom, 0px));
     overflow: auto;
     place-content: start center;
   }
 
   .ending {
     padding: 6% 5%;
+    padding-bottom: calc(6% + env(safe-area-inset-bottom, 0px));
     overflow: auto;
     align-content: start;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .guide,
+  .card-layer {
+    padding-bottom: calc(4% + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -1213,6 +1445,7 @@ body.reduce-motion .dialog__text.is-fading {
   </section>
 
   <section class="stage" id="stage" hidden>
+    <div class="stage__bg-blur" id="bgBlur" aria-hidden="true"></div>
     <div class="stage__bg" id="bgLayer" aria-hidden="true"></div>
     <div class="stage__grade" id="gradeLayer" aria-hidden="true"></div>
     <canvas class="stage__fx" id="fxCanvas" aria-hidden="true"></canvas>
@@ -1276,6 +1509,7 @@ body.reduce-motion .dialog__text.is-fading {
         <span class="dialog__hint" id="dialogHint">点击继续</span>
         <button class="btn btn--small" id="btnNext" type="button">继续</button>
       </div>
+      <p class="dialog__page" id="dialogPage" aria-hidden="true"></p>
     </div>
 
     <div class="choices" id="choices" hidden></div>
@@ -1694,6 +1928,7 @@ const els = {
   title: document.getElementById('titleScreen'),
   stage: document.getElementById('stage'),
   bg: document.getElementById('bgLayer'),
+  bgBlur: document.getElementById('bgBlur'),
   grade: document.getElementById('gradeLayer'),
   fx: document.getElementById('fxCanvas'),
   hudAct: document.getElementById('hudAct'),
@@ -1705,6 +1940,7 @@ const els = {
   text: document.getElementById('dialogText'),
   hint: document.getElementById('dialogHint'),
   next: document.getElementById('btnNext'),
+  dialogPage: document.getElementById('dialogPage'),
   choices: document.getElementById('choices'),
   ritual: document.getElementById('ritual'),
   ritualTitle: document.getElementById('ritualTitle'),
@@ -1987,6 +2223,29 @@ function isPortrait() {
   return window.matchMedia('(max-aspect-ratio: 1/1)').matches;
 }
 
+/* 竖屏主图以 contain 居中显示，微光容器要贴合这块实际画面，坐标才不会偏 */
+function layoutPortraitFrame() {
+  if (!els.spots) return;
+  if (!isPortrait() || els.spots.classList.contains('spots--paper')) {
+    els.spots.style.left = '';
+    els.spots.style.top = '';
+    els.spots.style.width = '';
+    els.spots.style.height = '';
+    return;
+  }
+  if (!els.stage || !els.bg) return;
+  const stageRect = els.stage.getBoundingClientRect();
+  const bgRect = els.bg.getBoundingClientRect();
+  if (!stageRect.width || !bgRect.width || !bgRect.height) return;
+  const ratio = 16 / 9;
+  const width = Math.min(bgRect.width, bgRect.height * ratio);
+  const height = width / ratio;
+  els.spots.style.left = `${bgRect.left - stageRect.left + (bgRect.width - width) / 2}px`;
+  els.spots.style.top = `${bgRect.top - stageRect.top + (bgRect.height - height) / 2}px`;
+  els.spots.style.width = `${width}px`;
+  els.spots.style.height = `${height}px`;
+}
+
 function loadBg(src, done) {
   if (!src || runtime.loadedBgs.has(src) || runtime.failedAssets.has(src)) {
     done();
@@ -2023,12 +2282,22 @@ function applyBackground(scene, src) {
   els.bg.classList.remove('is-zooming');
   els.bg.classList.toggle('no-photo', failed);
   els.bg.style.backgroundImage = failed ? '' : `url("${src}")`;
-  els.bg.style.backgroundSize = portrait ? '100% auto' : (scene.objectFit || 'cover');
-  els.bg.style.backgroundPosition = portrait ? '50% 0%' : (scene.focus || '50% 50%');
+  els.bg.style.backgroundSize = portrait ? 'contain' : (scene.objectFit || 'cover');
+  els.bg.style.backgroundPosition = portrait ? '50% 50%' : (scene.focus || '50% 50%');
+  els.bg.style.backgroundRepeat = 'no-repeat';
+
+  if (els.bgBlur) {
+    const blurOn = portrait && !failed;
+    els.bgBlur.classList.toggle('is-on', blurOn);
+    els.bgBlur.style.backgroundImage = blurOn ? `url("${src}")` : '';
+    els.bgBlur.style.backgroundPosition = scene.focus || '50% 50%';
+  }
+
   void els.bg.offsetWidth;
   if (!state.settings.reduce && !portrait && !failed) {
     requestAnimationFrame(() => els.bg.classList.add('is-zooming'));
   }
+  layoutPortraitFrame();
 }
 
 function setBackground(scene) {
@@ -2036,9 +2305,16 @@ function setBackground(scene) {
     els.bg.classList.remove('is-zooming');
     els.bg.classList.add('no-photo');
     els.bg.style.backgroundImage = '';
+    els.stage.classList.add('is-notebook');
+    if (els.bgBlur) {
+      els.bgBlur.classList.remove('is-on');
+      els.bgBlur.style.backgroundImage = '';
+    }
     els.stageLoading.hidden = true;
+    layoutPortraitFrame();
     return;
   }
+  els.stage.classList.remove('is-notebook');
   const src = ASSETS[scene.bg];
   if (!src || runtime.failedAssets.has(src)) {
     applyBackground(scene, '');
@@ -2249,22 +2525,28 @@ function choose(scene, option) {
 function updateHud(scene) {
   els.hudAct.textContent = ACTS[scene.act] || '';
   els.hudShot.textContent = scene.id;
+  if (els.dialogPage) {
+    const page = String(state.index + 1).padStart(2, '0');
+    els.dialogPage.textContent = `${page} / ${SCENES.length}`;
+  }
 }
 
 function layoutSpotLabels() {
   if (!els.stage || typeof els.stage.getBoundingClientRect !== 'function') return;
   if (typeof els.dialog.getBoundingClientRect !== 'function') return;
   const stageRect = els.stage.getBoundingClientRect();
+  const spotsRect = els.spots.getBoundingClientRect();
   const dialogRect = els.dialog.getBoundingClientRect();
   const dialogShown = els.dialog.classList.contains('is-visible');
   const labelHeight = 24;
+  const frameBottom = Math.min(stageRect.bottom, spotsRect.bottom || stageRect.bottom);
   els.spots.querySelectorAll('.spot').forEach((button) => {
     const rect = button.getBoundingClientRect();
     const labelTop = rect.bottom + 6;
     const blockedByDialog = dialogShown
       && labelTop + labelHeight > dialogRect.top
       && labelTop < dialogRect.bottom;
-    const blockedByStage = labelTop + labelHeight > stageRect.bottom - 4;
+    const blockedByStage = labelTop + labelHeight > frameBottom - 4;
     const roomAbove = rect.top - 6 - labelHeight > stageRect.top + 4;
     button.classList.toggle('is-label-above', roomAbove && (blockedByDialog || blockedByStage));
   });
@@ -2295,7 +2577,10 @@ function renderSpots(scene) {
     });
     els.spots.appendChild(button);
   });
-  requestAnimationFrame(layoutSpotLabels);
+  requestAnimationFrame(() => {
+    layoutPortraitFrame();
+    layoutSpotLabels();
+  });
 }
 
 function enterScene(index) {
@@ -2791,6 +3076,7 @@ els.corner.addEventListener('pointerleave', () => {
 
 new ResizeObserver(() => {
   sizeFx();
+  layoutPortraitFrame();
   layoutSpotLabels();
   const portrait = isPortrait();
   if (runtime.portrait !== portrait) {
