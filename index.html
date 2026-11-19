@@ -599,10 +599,13 @@ button {
 
 .dialog__who {
   margin: 0;
-  min-height: 15px;
-  font-size: calc(12px * var(--font-scale));
-  letter-spacing: 0.12em;
-  color: var(--rain);
+  min-height: 1.4em;
+  /* 人物名要"够得着"台词：原来 12px/400 的蓝灰，比 19px 的正文小了近一半，读起来像脚注。
+     改成 15px/600 暖棕，与纸色和暖光同族，横竖屏都是同一个层级关系 */
+  font-size: calc(15px * var(--font-scale));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #8d5c30;
 }
 
 .dialog__text {
@@ -1157,17 +1160,14 @@ body.reduce-motion .dialog__text.is-fading {
       linear-gradient(180deg, #f2e8d8 0%, #f4ebdd 36%, #ecdfca 78%, #e4d5bd 100%);
   }
 
+  /* 不再做模糊延展：延展层是把主图底部（往往是暗的书桌/地板）再模糊放大一遍，
+     底部一暗就成了一条深色横带（实测亮度 40~90，纸色是 236）。
+     改为让主图上下沿羽化进纸色，见下面 .stage__bg 的 mask。 */
   .stage__bg-blur {
-    display: block;
-    /* 只向上做 28px 出血（避免模糊层上沿透出硬边）。
-       左右不能出血：横向多出的像素会把 .stage 的 scrollWidth 撑大，
-       而 overflow:hidden 仍可被滚动，整层会被推出 28px，HUD 与微光一起偏。 */
-    inset: -28px 0 auto 0;
-    height: calc(var(--stage-frame-h) + 56px);
-    opacity: 1;
+    display: none;
   }
 
-  /* 主画面完整显示，人物不裁切；上下留白由模糊层接住 */
+  /* 主画面完整显示，人物不裁切；上下沿羽化成纸色，像印在纸上的一幅画 */
   .stage__bg {
     inset: 0 0 auto 0;
     height: var(--stage-frame-h);
@@ -1175,7 +1175,23 @@ body.reduce-motion .dialog__text.is-fading {
     background-position: 50% 50%;
     background-repeat: no-repeat;
     background-color: transparent;
-    box-shadow: 0 14px 34px rgba(73, 63, 57, 0.18);
+    /* contain 居中时主图约占画面区 18%~82%，两头各留一小段淡出，
+       边缘不再是一条硬线；不使用 box-shadow，否则会在框底留下一条灰影 */
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0) 14%,
+      #000 21%,
+      #000 72%,
+      rgba(0, 0, 0, 0) 82%
+    );
+    mask-image: linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0) 14%,
+      #000 21%,
+      #000 72%,
+      rgba(0, 0, 0, 0) 82%
+    );
+    box-shadow: none;
   }
 
   .stage__grade,
@@ -1186,35 +1202,21 @@ body.reduce-motion .dialog__text.is-fading {
     height: var(--stage-frame-h);
   }
 
-  /* 画面下沿渐隐到纸色，接住下半页 */
-  .stage::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: calc(var(--stage-frame-h) - 34px);
-    height: 68px;
-    z-index: 4;
-    background: linear-gradient(
-      180deg,
-      rgba(244, 235, 221, 0) 0%,
-      rgba(244, 235, 221, 0.66) 58%,
-      #f4ebdd 100%
-    );
-    pointer-events: none;
+  /* 竖屏的晕影只留四角一点点：原来的底部压暗（rgba(36,33,31,.34)）在横屏是给
+     画面压边用的，竖屏那个位置底下已经是纸面，会把纸压出一条深色横带 */
+  .stage__vignette {
+    background:
+      radial-gradient(ellipse at 50% 42%, transparent 60%, rgba(73, 63, 57, 0.07) 100%);
   }
 
-  .stage.is-notebook::before {
-    opacity: 0;
-  }
-
-  /* 下半页的纸纹，让空白变成可阅读的页面而不是没加载完的底色 */
+  /* 下半页的纸纹，让空白变成可阅读的页面而不是没加载完的底色；
+     从页面顶部铺起，画面羽化掉的地方直接落到同一张纸上 */
   .stage::after {
     content: "";
     position: absolute;
     left: 0;
     right: 0;
-    top: var(--stage-frame-h);
+    top: 0;
     bottom: 0;
     z-index: 0;
     background-image: radial-gradient(rgba(90, 74, 60, 0.055) 1px, transparent 1px);
@@ -1298,8 +1300,10 @@ body.reduce-motion .dialog__text.is-fading {
   }
 
   .dialog__who {
-    font-size: calc(12px * var(--font-scale));
-    letter-spacing: 0.14em;
+    font-size: calc(16px * var(--font-scale));
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #8d5c30;
   }
 
   .dialog__text {
@@ -1408,6 +1412,65 @@ body.reduce-motion .dialog__text.is-fading {
   .guide,
   .card-layer {
     padding-bottom: calc(4% + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* 手机横屏：可用高度只有 320–430px，结尾页按原尺寸排会上下都溢出，
+   最底下的"约定卡保存在本机"和落款 A game by Daka 被裁在屏外。
+   这里只把结尾页重排成紧凑版（正文行距收紧、按钮略小、留白减半），
+   其余版面一律不动；并用 safe center + 可滚动兜住更矮的窗口。 */
+@media (orientation: landscape) and (max-height: 520px) {
+  .ending {
+    gap: 8px;
+    padding: 12px 5%;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    place-content: center;
+    place-content: safe center;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ending__book {
+    height: 28px;
+  }
+
+  .ending__book-page {
+    width: 24px;
+    height: 26px;
+    border-radius: 1.5px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  }
+
+  .ending__line {
+    max-width: 34ch;
+    font-size: clamp(15px, 2.6vw, 19px);
+    line-height: 1.6;
+    letter-spacing: 0.06em;
+  }
+
+  .ending__detail {
+    margin: 2px 0;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .ending__actions {
+    gap: 8px;
+  }
+
+  .ending__actions .btn {
+    min-height: 44px;
+    padding: 8px 16px;
+    font-size: 13.5px;
+  }
+
+  .ending__note {
+    font-size: 11px;
+  }
+
+  .ending__credit {
+    font-size: 10px;
+    letter-spacing: 0.14em;
   }
 }
 
