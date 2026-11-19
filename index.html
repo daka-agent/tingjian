@@ -1045,6 +1045,28 @@ button {
   color: #5a4a3c;
 }
 
+/* 陪伴者页的时间分隔：上面几段玩之前就能读，下面几段要玩完才读得懂。
+   两侧细线由 CSS 画，文字里不写破折号，避免和正文的破折号混淆。 */
+.guide__body .guide__divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  margin: 26px 0 20px;
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0.22em;
+  color: rgba(90, 74, 60, 0.46);
+  text-align: center;
+}
+
+.guide__body .guide__divider::before,
+.guide__body .guide__divider::after {
+  content: "";
+  height: 1px;
+  background: rgba(90, 74, 60, 0.18);
+}
+
 .guide__credit {
   margin: 22px 0 14px;
   font-size: 11px;
@@ -1617,13 +1639,16 @@ body.reduce-motion .dialog__text.is-fading {
   <section class="guide" id="guide" hidden role="dialog" aria-modal="true" aria-labelledby="guideTitle">
     <div class="guide__paper">
       <p class="guide__kicker">给陪伴者的一页</p>
-      <h2 id="guideTitle">先陪他玩完，再一起说说话</h2>
+      <h2 id="guideTitle">先陪孩子玩完，再一起说说话</h2>
       <div class="guide__body">
         <p>《听见》不是一个需要“选对”的故事。小满可以自己说、写下来，也可以只说给愿意听的人。三条路都通向同一个结尾，没有哪一条更勇敢。</p>
-        <p>陪孩子玩的时候，可以先让他自己点。画面里的微光可以看，也可以不看；“继续”可以慢慢点。不要催他选，也不要问“你是不是也这样”。</p>
-        <p>玩完之后，如果他想说话，可以一起做那张约定卡。只挑一件小事，例如把软垫放到窗边，或者约一个安静时段。约定不是承诺所有愿望都会实现，而是“下次我还愿意听”。</p>
-        <p>如果孩子说出了让你担心的事，先听完，不急着判断，也不要把他的话变成公开分享。必要时联系学校心理老师、班主任或当地正规的儿童支持服务。这个游戏不能替代专业帮助。</p>
-        <p>如果孩子今天不想说，也可以。沉默不是失败，是他在选择什么时候、对谁说。</p>
+        <p>孩子自己点就好。画面里的微光可以看，也可以不看；“继续”慢慢点也行，停很久也没关系。不用替孩子点，选什么都不用解释。</p>
+        <p>第四幕叫「成人的同一天」，那一幕不太好受。如果你在那里停了一下，那很正常。你也可以先自己玩一遍，再陪孩子玩。</p>
+        <p>如果孩子今天不想说，也可以。沉默不是失败，是在选择什么时候、对谁说。</p>
+        <p class="guide__divider">玩完之后</p>
+        <p>如果孩子想说话，可以一起做那张约定卡。一件小事就够——把软垫放到窗边，或者约一个安静时段。约定不是“我都答应你”，是“下次我还愿意听”。</p>
+        <p>如果孩子说出了让你担心的事，先听完就好，不急着判断，也别把它变成公开分享的东西——那是孩子的事，不是故事。</p>
+        <p>如果你不确定该怎么接，可以联系学校心理老师、班主任或当地正规的儿童支持服务。这个游戏不能替代专业帮助。</p>
       </div>
       <p class="guide__credit">A game by Daka</p>
       <button class="btn btn--primary" id="btnCloseGuide" type="button">回到游戏</button>
