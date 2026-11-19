@@ -2972,7 +2972,15 @@ function closeMenu() {
 function openGuide() {
   closeMenu();
   els.guide.hidden = false;
-  els.btnCloseGuide.focus();
+  // 手机上这一页比屏幕高，聚焦关闭按钮（在纸页最底部）会把容器直接滚到底，
+  // 标题和前几段全被跳过。preventScroll 之外再补一次 scrollTop=0 兜旧版 Safari。
+  els.guide.scrollTop = 0;
+  try {
+    els.btnCloseGuide.focus({ preventScroll: true });
+  } catch (e) {
+    els.btnCloseGuide.focus();
+  }
+  requestAnimationFrame(() => { els.guide.scrollTop = 0; });
 }
 
 function closeGuide() {
