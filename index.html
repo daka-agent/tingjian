@@ -1501,6 +1501,39 @@ body.reduce-motion .dialog__text.is-fading {
     animation: none;
   }
 }
+
+/* —— daka-loadstate ——
+   引擎在文件末尾同步执行，成品 2.2MB 中图片占 95%。
+   文件未下完时「开始」点了不会有任何反应，而且点击不会被记住。
+   先把按钮置为「准备中」并禁用，DOMContentLoaded 后恢复。 */
+#btnStart {
+  /* 「开始」(2 字) 与「准备中」(3 字) 同宽，加载完不会有一瞬跳动 */
+  min-width: 6.2em;
+}
+
+.btn.is-preparing,
+.btn.is-preparing:hover,
+.btn.is-preparing:focus-visible {
+  cursor: default;
+  transform: none;
+  user-select: none;
+  animation: daka-prep 1.7s ease-in-out infinite;
+}
+
+.btn--primary.is-preparing:hover,
+.btn--primary.is-preparing:focus-visible {
+  background: var(--sun);
+}
+
+@keyframes daka-prep {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn.is-preparing { animation: none; opacity: 0.55; }
+}
+
 </style>
 </head>
 <body>
@@ -1516,6 +1549,36 @@ body.reduce-motion .dialog__text.is-fading {
         <button class="btn" id="btnResume" type="button" hidden>继续上次</button>
         <button class="btn btn--ghost" id="btnGuide" type="button">给陪伴者的一页</button>
       </div>
+      <script>
+      /* daka-loadstate —— 引擎 game.js 在文件末尾同步执行，成品中图片占 95%。
+         文件没下完时点「开始」不会有反应，而且这次点击不会被记住。
+         这里先禁用并说明「准备中」，等 DOMContentLoaded（引擎监听已绑好）再恢复。 */
+      (function () {
+        var b = document.getElementById('btnStart');
+        if (!b) return;
+        var LABEL = b.textContent;
+        var BUSY = '\u51c6\u5907\u4e2d';   /* 准备中 */
+        var done = false;
+        function ready() {
+          if (done) return;
+          done = true;
+          b.textContent = LABEL;
+          b.disabled = false;
+          b.removeAttribute('aria-busy');
+          b.classList.remove('is-preparing');
+        }
+        if (document.readyState !== 'loading') { return; }
+        b.textContent = BUSY;
+        b.disabled = true;
+        b.setAttribute('aria-busy', 'true');
+        b.classList.add('is-preparing');
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(ready, 0); });
+        window.addEventListener('load', ready);
+        var poll = setInterval(function () {
+          if (document.readyState !== 'loading') { clearInterval(poll); ready(); }
+        }, 120);
+      })();
+      </script>
       <p class="title-screen__note">
         这不是心理测评，不收集姓名、学校或任何个人信息，也不上传你的选择。
         所有进度只保存在这台设备上。
